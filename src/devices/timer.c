@@ -90,6 +90,8 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
+  printf("%s sleep until: 11\n", thread_name());
+
 
   ASSERT (intr_get_level () == INTR_ON);
   if(ticks>0) 
@@ -168,21 +170,26 @@ timer_print_stats (void)
 }
 
 /* Timer interrupt handler. */
-static void
-timer_interrupt (struct intr_frame *args UNUSED)
-{
+static void timer_interrupt(struct intr_frame *args UNUSED) {
   ticks++;
-  thread_tick ();
-
-  while(!list_empty(&sleep_list))
-  {
-      struct thread *t = list_entry(list_front(&sleep_list), struct thread, elem);
-       if(t->wakeup_tick > ticks) break;
-      
-      list_pop_front(&sleep_list);
-      thread_unblock(t);
+  thread_tick();  // 기본 스케줄러 처리
+  printf("TICK: %lld\n", ticks);  
+  struct thread *cur = thread_current();
+  if (cur != idle_thread) {
+    cur->recent_cpu = ADD_MIX(cur->recent_cpu, 1);
   }
+
+  if (ticks % TIMER_FREQ == 0) {
+    calculate_load_avg();
+    update_all_recent_cpu();
+  }
+
+  if (ticks % 4 == 0) {
+    update_all_priority();
+  }
+  thread_awake(ticks);
 }
+
 
 
 
@@ -256,3 +263,20 @@ real_time_delay (int64_t num, int32_t denom)
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
+void update_all_recent_cpu(void) {
+    struct list_elem *e;
+
+    for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+        struct thread *t = list_entry(e, struct thread, allelem);
+        calculate_recent_cpu(t);
+    }
+}
+void update_all_priority(void) {
+    struct list_elem *e;
+
+    for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+        struct thread *t = list_entry(e, struct thread, allelem);
+        calculate_priority(t);
+    }
+}
+

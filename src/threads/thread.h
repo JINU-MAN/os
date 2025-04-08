@@ -1,11 +1,14 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
-#include <debug.h>
 #include <list.h>
+#include <debug.h>
 #include <stdint.h>
 #include "lib/kernel/list.h"
+#include "threads/fixed_point.h"
 
+extern struct list all_list;
+extern struct thread *idle_thread;
 extern struct list sleep_list;
 /* States in a thread's life cycle. */
 enum thread_status
@@ -92,6 +95,10 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
     
+    int nice;
+    fixed_point recent_cpu;
+    
+    
     int64_t wakeup_tick;
     
     /* Shared between thread.c and synch.c. */
@@ -110,6 +117,12 @@ struct thread
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+
+
+
+void calculate_load_avg(void);
+void update_all_recent_cpu(void);
+void update_all_priority(void);
 
 void thread_init (void);
 void thread_start (void);
@@ -146,5 +159,9 @@ void thread_sleep(int64_t wakeup_tick);
 bool wake_tick_less(const struct list_elem *a,
                      const struct list_elem *b,
                      void *aux UNUSED);
+bool thread_priority_more(const struct list_elem *a,
+                          const struct list_elem *b,
+                          void *aux UNUSED);
+void thread_awake(int64_t current_tick);
 
 #endif /* threads/thread.h */
